@@ -1,5 +1,8 @@
 name: hello-world-ci-front-end
-on: [push]
+on: 
+  pull_requests:
+    branches: 
+      - main
 jobs:
   ci_frontend_job:
     runs-on: ubuntu-latest
