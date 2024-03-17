@@ -1,5 +1,8 @@
 name: hello-world-cd-back-end
-on: [push]
+on:
+  push:
+    branches: 
+      - main
 jobs:
   ci_frontend_job:
     runs-on: ubuntu-latest
