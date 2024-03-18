@@ -1,4 +1,4 @@
-name: hello-world-ci-front-end
+name: ci-front-end
 on:
   # pull_requests:
   push:
