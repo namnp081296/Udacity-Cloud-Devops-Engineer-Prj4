@@ -20,7 +20,7 @@ jobs:
           cd starter/frontend
           npm update
           npm install
-          npm lint
+          npm run lint
           npm test
 
     
