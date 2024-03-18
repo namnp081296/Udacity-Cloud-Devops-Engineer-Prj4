@@ -18,7 +18,7 @@ jobs:
       - name: lint-and-test-step
         run: |
           cd starter/frontend
-          npm i -g lint
+          npm update
           npm install
           npm lint
           npm test
