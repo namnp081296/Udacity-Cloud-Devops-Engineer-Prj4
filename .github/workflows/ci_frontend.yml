@@ -17,6 +17,7 @@ jobs:
         uses: actions/checkout@v4
       - name: lint-and-test-step
         run: |
+          cd starter/frontend
           npm install
           npm lint
           npm test
