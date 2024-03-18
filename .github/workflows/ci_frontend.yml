@@ -1,6 +1,7 @@
 name: hello-world-ci-front-end
 on:
-  pull_requests:
+  # pull_requests:
+  push:
     branches: 
       - main
   workflow_dispatch:
