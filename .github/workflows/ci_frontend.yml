@@ -1,12 +1,22 @@
 name: hello-world-ci-front-end
-on: 
+on:
   pull_requests:
     branches: 
       - main
+  workflow_dispatch:
 jobs:
   ci_frontend_job:
     runs-on: ubuntu-latest
     steps:
-      - name: first-step
-        run: echo "Hello CI FE"
+      - name: Install NodeJS
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: lint-and-test-step
+        run: |
+          - cd starter/frontend
+          - ls -la
+
     
