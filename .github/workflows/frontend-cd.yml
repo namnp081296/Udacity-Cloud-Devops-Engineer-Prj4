@@ -1,0 +1,77 @@
+name: cd-front-end-workflow
+on: 
+  push:
+    branches:
+      - main
+    paths:
+      - 'starter/frontend/**'
+  workflow_dispatch:
+    inputs:
+      trigger-ci:
+        description: 'Manually trigger CI'
+        required: false
+        default: 'false'
+jobs:
+  cd_fe_test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install NodeJS
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-npm-
+          
+      - name: Run Test code
+        run: |
+          cd starter/frontend
+          npm install
+          npm test
+
+  cd_fe_build:
+    runs-on: ubuntu-latest
+    needs: cd_fe_test
+    if: ${{ success() && needs.cd_fe_lint.result == 'success' && needs.cd_fe_test.result == 'success' }}
+    steps:
+      - name: Install NodeJS
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Run Build code
+        run: |
+          cd starter/frontend
+          npm install
+          npm run build
+  
+  cd_fe_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ AWS_DEFAULT_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        run: aws ecr get-login-password --region ${{ AWS_DEFAULT_REGION }} | docker login --username AWS --password-stdin ${{ AWS_ACCOUNT_ID }}.dkr.ecr.${{ AWS_DEFAULT_REGION }}.amazonaws.com
+
+      - name: Tag image with ECR repository URI
+        run: docker tag ${{ IMAGE_NAME }}:${{ github.sha }} ${{ AWS_ACCOUNT_ID }}.dkr.ecr.${{ AWS_DEFAULT_REGION }}.amazonaws.com/${{ IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Push image to Amazon ECR
+        run: docker push ${{ AWS_ACCOUNT_ID }}.dkr.ecr.${{ AWS_DEFAULT_REGION }}.amazonaws.com/${{ IMAGE_NAME }}:${{ github.sha }}
+    
