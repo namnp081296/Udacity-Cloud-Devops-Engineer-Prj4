@@ -6,11 +6,7 @@ on:
     paths:
       - 'starter/frontend/**'
   workflow_dispatch:
-    inputs:
-      trigger-ci:
-        description: 'Manually trigger CI'
-        required: false
-        default: 'false'
+
 jobs:
   cd_fe_lint:
     runs-on: ubuntu-latest
@@ -22,19 +18,17 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 18
-
-      - name: Cache dependencies
-        uses: actions/cache@v2
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: ${{ runner.os }}-npm-
+          cache: "npm"
+          cache-dependency-path: starter/frontend/package-lock.json
+      
+      - name: Install Dependencies
+        run: npm ci
+        working-directory: starter/frontend
 
       - name: Run Lint code
-        run: |
-          cd starter/frontend
-          npm install
-          npm run lint
+        run: npm run lint
+        working-directory: starter/frontend
+
 
   cd_fe_test:
     runs-on: ubuntu-latest
@@ -46,19 +40,16 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 18
-
-      - name: Cache dependencies
-        uses: actions/cache@v2
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: ${{ runner.os }}-npm-
+          cache: "npm"
+          cache-dependency-path: starter/frontend/package-lock.json
+      
+      - name: Install Dependencies
+        run: npm ci
+        working-directory: starter/frontend
 
       - name: Run Test code
-        run: |
-          cd starter/frontend
-          npm install
-          npm test
+        run: npm run test
+        working-directory: starter/frontend
 
   cd_fe_build:
     runs-on: ubuntu-latest
@@ -67,57 +58,69 @@ jobs:
       steps:
         - name: Checkout code
           uses: actions/checkout@v4
+        
+        - name: Install NodeJS
+          uses: actions/setup-node@v3
+          with:
+            node-version: 18
+            cache: "npm"
+            cache-dependency-path: starter/frontend/package-lock.json
+        
+        - name: Install depends
+          run: npm install
+          working-directory: starter/frontend
 
-        # Add steps to build the frontend application using Docker
-        - name: Set up Docker Buildx
-          uses: docker/setup-buildx-action@v3
-
-        - name: Build application with Docker
-          run: |
-            cd starter/frontend
-            docker build \
-              --build-arg REACT_APP_MOVIE_API_URL=${{ secrets.MOVIE_API_URL }} \
-              -t frontend:${{ github.sha }} .
-            docker run -e REACT_APP_MOVIE_API_URL=${{ secrets.MOVIE_API_URL }} frontend:${{ github.sha }}
-    
-  cd_fe_ecr-login:
+        - name: Testing
+          run: npm run test
+          working-directory: starter/frontend
+  
+  cd_fe_deploy:
     runs-on: ubuntu-latest
-    steps:
-      - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v1
-        with:
-          registry: ${{ secrets.AWS_REGISTRY_URL }}
-          access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
-  cd_fe_ecr-push:
-    runs-on: ubuntu-latest
-    needs: [cd_fe_build, cd_fe_ecr-login]
+    needs: [cd_fe_build]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Add steps to push the Docker image to ECR
-      - name: Tag and Push Docker image to ECR
-        run: |
-          docker tag frontend:${{ github.sha }} ${{ AWS_ACCOUNT_ID }}.dkr.ecr.${{ AWS_DEFAULT_REGION }}.amazonaws.com/frontend:${{ github.sha }}
-          docker push ${{ AWS_ACCOUNT_ID }}.dkr.ecr.${{ AWS_DEFAULT_REGION }}.amazonaws.com/frontend:${{ github.sha }}
-  
-  cd_fe_deploy:
-    runs-on: ubuntu-latest
-    needs: [cd_fe_ecr-push]
-
-    steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ AWS_DEFAULT_REGION }}
+      
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Deploy to EKS cluster
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ AWS_ACCOUNT_ID }}.dkr.ecr.${{ AWS_DEFAULT_REGION }}.amazonaws.com/frontend
+          tags: |
+            type=sha 
+      
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          context: starter/frontend
+          tag_with_sha: true
+          tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            REACT_APP_MOVIE_API_URL=${{ vars.REACT_APP_MOVIE_API_URL }}
+      
+      - name: Update Kubeconfig K8S cluster
+        run: aws eks update-kubeconfig --name cluster --region ${{ AWS_DEFAULT_REGION }}
+
+      - name: Deploy Frontend application to EKS cluster
         run: |
-          cd starter/frontend/k8s
-          kustomize edit set image frontend=${{ AWS_ACCOUNT_ID }}.dkr.ecr.${{ AWS_DEFAULT_REGION }}.amazonaws.com/frontend:${{ github.sha }}
+          kustomize edit set image frontend=${{ steps.meta.outputs.tags }}
           kustomize build | kubectl apply -f -
+        working-directory: starter/frontend/k8s
