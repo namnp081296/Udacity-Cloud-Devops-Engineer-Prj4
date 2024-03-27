@@ -1,0 +1,75 @@
+name: ci-front-end-workflow
+on:
+  pull_requests:
+    branches:
+      - main
+    paths:
+      - 'starter/frontend/**'
+  workflow_dispatch:
+
+jobs:
+  ci_fe_lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install NodeJS
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: "npm"
+          cache-dependency-path: starter/frontend/package-lock.json
+      
+      - name: Install Dependencies
+        run: npm ci
+        working-directory: starter/frontend
+
+      - name: Run Lint code
+        run: npm run lint
+        working-directory: starter/frontend
+
+  ci_fe_test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install NodeJS
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: "npm"
+          cache-dependency-path: starter/frontend/package-lock.json
+      
+      - name: Install Dependencies
+        run: npm ci
+        working-directory: starter/frontend
+
+      - name: Run Test code
+        run: npm run test
+        working-directory: starter/frontend
+
+  ci_fe_build:
+    runs-on: ubuntu-latest
+    needs: [ci_fe_lint, ci_fe_test]
+    if: ${{ success() && needs.ci_fe_lint.result == 'success' && needs.ci_fe_test.result == 'success' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install NodeJS
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: "npm"
+          cache-dependency-path: starter/frontend/package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci
+        working-directory: starter/frontend
+
+      - name: Run Test code
+        run: npm run test
+        working-directory: starter/frontend
+ 
