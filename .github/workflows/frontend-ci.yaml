@@ -1,6 +1,6 @@
 name: ci-front-end-workflow
 on:
-  pull_requests:
+  pull_request:
     branches:
       - main
     paths:
