@@ -107,5 +107,4 @@ jobs:
         with:
           push: false
           context: starter/backend
-          tag_with_sha: true
           tags: ${{ steps.meta.outputs.tags }}

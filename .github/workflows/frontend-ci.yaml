@@ -103,7 +103,6 @@ jobs:
         with:
           push: false
           context: starter/frontend
-          tag_with_sha: true
           tags: ${{ steps.meta.outputs.tags }}
           build-args: |
             REACT_APP_MOVIE_API_URL=${{ vars.REACT_APP_MOVIE_API_URL }}

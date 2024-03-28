@@ -112,7 +112,6 @@ jobs:
         with:
           push: true
           context: starter/backend
-          tag_with_sha: true
           tags: ${{ steps.meta.outputs.tags }}
       
       - name: Update Kubeconfig K8S cluster
